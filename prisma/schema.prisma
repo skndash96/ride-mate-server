@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Status {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum VehicleEnum {
+  CAR
+  AUTO
+  TAXI
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REVOKED
+}
+
+model User {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  email       String   @unique
+  phoneNumber String?
+  name        String?
+  gender      String?
+
+  rides        Ride[]
+  notification Notification[]
+}
+
+model Ride {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  status      Status   @default(PENDING)
+  ownerId     String
+  groupId     String?
+  earliestDep DateTime
+  latestDep   DateTime
+  peopleCnt   Int
+  femaleCnt   Int
+
+  owner          User         @relation(fields: [ownerId], references: [id])
+  offeredRides   Group[]      @relation(name: "owner")
+  group          Group?       @relation(name: "participants", fields: [groupId], references: [id])
+  stops          Stop[]
+  possibleRoutes Route[]
+  suggestions    Suggestion[]
+  sentInvites    Invite[]
+}
+
+model Group {
+  id          String      @id @default(cuid())
+  status      Status      @default(PENDING)
+  routeId     String      @unique
+  ownerRideId String
+  vehicleType VehicleEnum
+  capacity    Int
+
+  ownerRide       Ride         @relation(name: "owner", fields: [ownerRideId], references: [id])
+  rides           Ride[]       @relation(name: "participants")
+  route           Route        @relation(fields: [routeId], references: [id])
+  receivedInvites Invite[]
+  suggestions     Suggestion[]
+  messages        Message[]
+}
+
+model Route {
+  id       String @id @default(cuid())
+  solution Json
+  distance Int
+  duration Int
+
+  group       Group?
+  rides       Ride[]
+  suggestions Suggestion[]
+}
+
+model Invite {
+  id              String       @id @default(cuid())
+  status          InviteStatus @default(PENDING)
+  declineReason   String?
+  senderRideId    String
+  receiverGroupId String
+  createdAt       DateTime     @default(now())
+
+  senderRide    Ride  @relation(fields: [senderRideId], references: [id])
+  receiverGroup Group @relation(fields: [receiverGroupId], references: [id])
+}
+
+model Suggestion {
+  rideId  String
+  groupId String
+  routeId String
+
+  route Route @relation(fields: [routeId], references: [id])
+  ride  Ride  @relation(fields: [rideId], references: [id])
+  group Group @relation(fields: [groupId], references: [id])
+
+  @@id([rideId, groupId])
+}
+
+model Stop {
+  id        String @id @default(cuid())
+  address   String
+  stopOrder Int
+  lat       Float
+  lon       Float
+
+  rideId String
+  ride   Ride   @relation(fields: [rideId], references: [id])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  text      String
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  text      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
